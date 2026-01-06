@@ -1,0 +1,63 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Get the code
+      - name: Checkout Source
+        uses: actions/checkout@v3
+
+      # 2. Setup Java (Required for Android build)
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # 3. Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+
+      # 4. Install Dependencies
+      - name: Install NPM Dependencies
+        working-directory: ./frontend
+        run: npm ci  # 'ci' is faster and cleaner than 'install' for servers
+
+      # 5. Build the Web App (React/Vue/Angular/etc.)
+      - name: Build Web Assets
+        working-directory: ./frontend
+        run: npm run build
+
+      # 6. Sync web assets to Android platform
+      - name: Sync Capacitor
+        working-directory: ./frontend
+        run: npx cap sync android
+
+      # 7. Grant permission to Gradle wrapper (Crucial Step!)
+      - name: Make Gradle Executable
+        working-directory: ./frontend/android
+        run: chmod +x gradlew
+
+      # 8. Build the APK using Gradle
+      - name: Build Debug APK
+        working-directory: ./frontend/android
+        run: ./gradlew assembleDebug
+
+      # 9. Upload the APK so you can download it
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-app
+          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
